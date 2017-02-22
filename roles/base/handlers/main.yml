@@ -1,6 +1,10 @@
 ---
 - name: Restart sshd
-  service: name=sshd state=restarted
+  systemd:
+    name: sshd
+    state: restarted
 
 - name: Restart firewalld
-  service: name=firewalld state=restarted
+  systemd:
+    name: firewalld
+    state: restarted

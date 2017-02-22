@@ -1,56 +1,111 @@
 ---
 - include_vars: "secrets.yml"
 
-- name: Upgrade all packages
-  yum: name=* state=latest  update_cache=yes
+- name: Include variables (Ubuntu)
+  include_vars:
+    file: "ubuntu.yml"
+  when: ansible_os_family == "Debian"
 
-- name: Install NTP
-  yum: name=ntp update_cache=yes
+- name: Include variables (RHEL)
+  include_vars: 
+    file: "rhel.yml"
+  when: ansible_os_family == "RedHat"
 
-- name: Enable NTP
-  service: name=ntpd state=started enabled=yes
+- name: Upgrade all packages (RHEL)
+  yum: 
+    name: "*"
+    state: latest 
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
 
-- name: Install SElinux deps
-  yum: name={{item}} update_cache=yes
+- name: Upgrade all packages (Ubuntu)
+  apt:
+    upgrade: dist
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install ntp
+  package:
+    name: "{{ntp}}"
+    update_cache: yes
+
+- name: Enable ntp
+  systemd:
+    name: "{{ntp_service}}"
+    state: started
+    enabled: True
+
+- name: Install SELinux deps (RHEL)
+  yum: 
+    name: "{{item}}"
+    update_cache: yes
   with_items:
   - libsemanage-python
   - libselinux-python
+  when: ansible_os_family == "RedHat"
 
 - name: Install ssh pub keys for root
-  authorized_key: 
+  authorized_key:
     user: root
     key: '{{lookup("file", item)}}'
   with_items: "{{ssh_keys}}"
 
 - name: Disable password based root access
-  lineinfile: dest=/etc/ssh/sshd_config line="PermitRootLogin without-password" state=present
+  lineinfile: 
+    dest: /etc/ssh/sshd_config
+    line: "PermitRootLogin without-password"
+    state: present
   notify: Restart sshd
 
-- name: Enable SELinux
-  selinux: policy=targeted state=enforcing
+- name: Enable SELinux (RHEL)
+  selinux: 
+    policy: targeted
+    state: enforcing
+  when: ansible_os_family == "RedHat"
+
+- name: Remove ufw (Ubuntu)
+  apt:
+    name: ufw
+    state: absent
+    purge: yes
+  when: ansible_os_family == "Debian"
 
 - name: Install firewalld
-  yum: name=firewalld update_cache=yes
+  package:
+    name: firewalld
 
 - name: Enable firewalld
-  service: name=firewalld state=started enabled=yes
+  systemd:
+    name: firewalld
+    state: started
+    enabled: True
 
 - name: Open firewalld for specified services
-  firewalld: service={{item}} state=enabled permanent=true
+  firewalld: 
+    service: "{{item}}"
+    state: enabled
+    permanent: true
   with_items: "{{firewall_exceptions}}"
   notify: Restart firewalld
 
-- name: Install EPEL
-  yum: name=https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm
+- name: Install EPEL (RHEL)
+  yum: 
+    name: "{{epel_repo_rpm}}"
+  when: ansible_os_family == "RedHat"
 
 - name: Install sysstat
-  yum: name=sysstat update_cache=yes
+  package: 
+    name: sysstat
+    update_cache: yes
 
 - name: Enable sysstat
-  service: name=sysstat state=started enabled=yes
+  systemd:
+    name: sysstat
+    state: started
+    enabled: yes
 
 - command: grep "^/swapfile" /proc/swaps
-  register: swapfile_result 
+  register: swapfile_result
   ignore_errors: true
 
 - name: Create swap file
@@ -58,15 +113,26 @@
   when: swapfile_result.rc != 0
 
 - name: Format swap file
-  command: mkswap /swapfile 
+  command: mkswap /swapfile
   when: swapfile_result.rc != 0
-  
+
 - name: Change perms on swap file
-  file: path=/swapfile owner=root group=root mode=0600
+  file: 
+    path: /swapfile
+    owner: root
+    group: root
+    mode: 0600
 
 - name: Swapon swap file
   command: swapon /swapfile
   when: swapfile_result.rc != 0
 
 - name: Update fstab with swap file
-  mount: name=none src=/swapfile fstype=swap opts=sw passno=0 dump=0 state=present
+  mount: 
+    name: none
+    src: /swapfile
+    fstype: swap 
+    opts: sw 
+    passno: 0 
+    dump: 0
+    state: present
