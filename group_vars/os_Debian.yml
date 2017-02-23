@@ -1,0 +1,8 @@
+---
+ntp: "ntp"
+ntp_service: "{{ntp}}"
+postgres: "postgresql-9.5"
+postgres_service: "postgresql"
+ansible_postgres_deps:
+  - python-psycopg2
+  - python3-psycopg2

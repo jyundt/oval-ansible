@@ -1,0 +1,13 @@
+#- name: group hosts by OS
+#  hosts: all
+#  tasks:
+#    - group_by:
+#        key: os_{{ansible_os_family}}
+
+
+- name: import OS variables
+  hosts: all
+  tasks:
+    - include_vars: "group_vars/os_{{ansible_os_family}}.yml"
+
+- include: base.yml
