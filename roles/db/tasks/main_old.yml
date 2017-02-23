@@ -1,27 +1,12 @@
 ---
 - include_vars: "{{ansible_nodename}}.yml"
 
-- name: Include variables (Ubuntu)
-  include_vars:
-    file: "ubuntu.yml"
-  when: ansible_os_family == "Debian"
-
-- name: Include variables (RHEL)
-  include_vars: 
-    file: "rhel.yml"
-  when: ansible_os_family == "RedHat"
-
 - name: Install Postgres    
-  package: 
-    name: "{{postgres}}"
-    update_cache: yes
+  yum: name=postgresql-server update_cache=yes
 
-- name: Install Ansible postgres dependencies
-  package:
-     name: "{{item}}"
-     update_cache: yes
-  with_items: "{{ansible_postgres_deps}}"
-#pickuphere
+- name: Install psycopg2
+  yum: name=python-psycopg2 update_cache=yes
+
 - name: Initialize Postgres
   command: /usr/bin/postgresql-setup initdb creates=/var/lib/pgsql/data/pg_hba.conf
 
