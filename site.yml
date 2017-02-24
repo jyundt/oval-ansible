@@ -11,3 +11,6 @@
     - include_vars: "group_vars/os_{{ansible_os_family}}.yml"
 
 - include: base.yml
+#- include: db.yml
+#- include: app.yml
+#- include: web.yml

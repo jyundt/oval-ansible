@@ -1,16 +1,6 @@
 ---
 - include_vars: "{{ansible_nodename}}.yml"
 
-- name: Include variables (Ubuntu)
-  include_vars:
-    file: "ubuntu.yml"
-  when: ansible_os_family == "Debian"
-
-- name: Include variables (RHEL)
-  include_vars: 
-    file: "rhel.yml"
-  when: ansible_os_family == "RedHat"
-
 - name: Install Postgres    
   package: 
     name: "{{postgres}}"

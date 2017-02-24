@@ -1,5 +1,0 @@
----
-postgres: "postgresql-server"
-postgres_service: "postgresql"
-ansible_postgres_deps:
-  - python-psycopg2
