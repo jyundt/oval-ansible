@@ -1,0 +1,13 @@
+---
+slack_channel: "#ops"
+ssh_keys:
+  - jyundt-id_rsa.pub
+  - jheffner-id_rsa.pub
+slack_ansible_api_token: "{{vault_slack_ansible_api_token}}"
+certbot_username: "{{vault_certbot_username}}"
+postgres_version: "9.6"
+postgres_version_no_dot: "{{postgres_version|regex_replace('[.]', '')}}"
+db_user: "{{vault_db_user}}"
+db_pass: "{{vault_db_pass}}"
+db_name: "{{vault_db_name}}"
+ssl_cipher_suite: "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS"

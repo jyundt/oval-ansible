@@ -1,8 +1,12 @@
 ---
-ntp: "ntp"
-ntp_service: "{{ntp}}"
-postgres: "postgresql-9.5"
+ntp_package: "ntp"
+ntp_service: "{{ntp_package}}"
+postgres_package: "postgresql-{{postgres_version}}"
 postgres_service: "postgresql"
 ansible_postgres_deps:
-  - python-psycopg2
   - python3-psycopg2
+certbot_package: "certbot"
+pgdata: "/var/lib/postgresql/{{postgres_version}}/main"
+pgconfdir: "/etc/postgresql/{{postgres_version}}/main"
+pg_hba_conf: "{{pgconfdir}}/pg_hba.conf"
+postgresql_conf: "{{pgconfdir}}/postgresql.conf"

@@ -1,0 +1,12 @@
+---
+- name: Restart postgres
+  service: 
+    name: "{{postgres_service}}"
+    state: restarted
+  listen: "Restart postgres"
+
+- name: Restart sshd
+  service:
+    name: sshd
+    state: restarted
+  listen: "Restart sshd"

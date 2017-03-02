@@ -9,8 +9,11 @@
   hosts: all
   tasks:
     - include_vars: "group_vars/os_{{ansible_os_family}}.yml"
+  handlers:
+    - include: handlers/main.yml
 
 - include: base.yml
-#- include: db.yml
+- include: db.yml
 #- include: app.yml
 #- include: web.yml
+

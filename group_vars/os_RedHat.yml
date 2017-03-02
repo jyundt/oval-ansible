@@ -1,8 +1,13 @@
 ---
-ntp: "chrony"
+ntp_package: "chrony"
 ntp_service: "chronyd"
 epel_repo_rpm: "https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm"
-postgres: "postgresql-server"
-postgres_service: "postgresql"
+postgres_package: "postgresql{{postgres_version_no_dot}}-server"
+postgres_service: "postgresql-{{postgres_version}}"
 ansible_postgres_deps:
   - python-psycopg2
+certbot_package: "certbot"
+pgdata: "/var/lib/pgsql/{{postgres_version}}/data"
+pgconfdir: "{{pgdata}}"
+pg_hba_conf: "{{pgconfdir}}/pg_hba.conf"
+postgresql_conf: "{{pgconfdir}}/postgresql.conf"

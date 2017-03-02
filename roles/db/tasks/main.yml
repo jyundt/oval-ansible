@@ -1,37 +1,147 @@
 ---
-- include_vars: "{{ansible_nodename}}.yml"
+- name: Download Postgres RPM GPG key (RHEL)
+  get_url:
+    url: "https://download.postgresql.org/pub/repos/yum/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+    dest: "/etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
 
-- name: Install Postgres    
-  package: 
-    name: "{{postgres}}"
+- name: Add Postgres RPM GPG key (RHEL)
+  rpm_key: 
+    state: present
+    key: "https://download.postgresql.org/pub/repos/yum/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Install Postgres repo (RHEL)
+  yum_repository:
+    name: "pgdg{{postgres_version_no_dot}}"
+    file: "pgdg-{{postgres_version_no_dot}}-redhat"
+    description: "PostgreSQL {{postgres_version}} $releasever - $basearch"
+    baseurl: "https://download.postgresql.org/pub/repos/yum/{{postgres_version}}/redhat/rhel-$releasever-$basearch"
+    gpgcheck: yes
+    gpgkey: "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Add Postgres APT GPG key (Ubuntu)
+  apt_key: 
+    state: present
+    url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+  when: ansible_os_family == "Debian"
+
+- name: Install Postgres repo (Ubuntu)
+  apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt/ {{ansible_distribution_release}}-pgdg main"
+    state: present
+  when: ansible_os_family == "Debian"
+  
+- name: Install Postgres
+  package:
+    name: "{{postgres_package}}"
     update_cache: yes
 
-- name: Install Ansible postgres dependencies
-  package:
-     name: "{{item}}"
-     update_cache: yes
+- name: Install Postgres deps
+  package: 
+    name: "{{item}}"
+    update_cache: yes
   with_items: "{{ansible_postgres_deps}}"
-#pickuphere
-- name: Initialize Postgres
-  command: /usr/bin/postgresql-setup initdb creates=/var/lib/pgsql/data/pg_hba.conf
 
-- name: Enable password based auth for localhost ipv4
-  lineinfile: dest=/var/lib/pgsql/data/pg_hba.conf regexp="^host    all             all             127.0.0.1/32" line="host    all             all             127.0.0.1/32            md5"
+- name: Initialize Postgres (RHEL)
+  command: "/usr/pgsql-{{postgres_version}}/bin/postgresql{{postgres_version_no_dot}}-setup initdb"
+  args:
+    creates: "{{pg_hba_conf}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Create pg_hba.conf file
+  copy: 
+    src: files/pg_hba.conf
+    dest: "{{pg_hba_conf}}"
   notify: Restart postgres
 
-- name: Enable password based auth for localhost ipv6
-  lineinfile: dest=/var/lib/pgsql/data/pg_hba.conf regexp="^host    all             all             ::1/128" line="host    all             all             ::1/128                 md5"
+- name: Modify postgresql.conf to listen on all interfaces
+  lineinfile:
+    dest: "{{postgresql_conf}}"
+    regexp: "^listen_addresses ="
+    line: "listen_addresses = '*'"
   notify: Restart postgres
-  
+
+- name: Modify postgresql.conf to enable ssl
+  lineinfile:
+    dest: "{{postgresql_conf}}"
+    regexp: "^ssl = "
+    line: "ssl = true"
+  notify: Restart postgres
+
+- name: Modify postgresql.conf to enable strong ciphers
+  lineinfile:
+    dest: "{{postgresql_conf}}"
+    regexp: "^ssl_ciphers = "
+    line: "ssl_ciphers = '{{ssl_cipher_suite}}'"
+  notify: Restart postgres
+
+- name: Copy certbot SSL cert
+  copy:
+    src: "/etc/letsencrypt/live/{{ansible_fqdn}}/cert.pem"
+    dest: "{{pgconfdir}}/server.crt"
+    owner: postgres
+    group: postgres
+    mode: 0644
+    remote_src: True
+    follow: True
+  notify: Restart postgres
+
+- name: Copy certbot SSL key
+  copy:
+    src: "/etc/letsencrypt/live/{{ansible_fqdn}}/privkey.pem"
+    dest: "{{pgconfdir}}/server.key"
+    owner: postgres
+    group: postgres
+    mode: 0400
+    remote_src: True
+    follow: True
+  notify: Restart postgres
+
+- name: Add postgres prehook for certbot renewal
+  blockinfile:
+    create: True
+    dest: "/etc/letsencrypt/hooks/pre.sh"
+    mode: 0755
+    block: |
+      systemctl stop {{postgres_service}}
+
+- name: Add postgres posthook for certbot renewal
+  blockinfile:
+    create: True
+    dest: "/etc/letsencrypt/hooks/post.sh"
+    mode: 0755
+    block: |
+      cp /etc/letsencrypt/live/{{ansible_fqdn}}/privkey.pem {{pgconfdir}}/server.key
+      cp /etc/letsencrypt/live/{{ansible_fqdn}}/cert.pem {{pgconfdir}}/server.crt
+      systemctl start {{postgres_service}}
+
+- name: Open firewalld for postgres
+  firewalld:
+    service: postgresql
+    state: enabled
+    permanent: true
+    immediate: True
+
 - name: Start/enable Postgres
-  service: name=postgresql state=started enabled=yes
+  service:
+    name: "{{postgres_service}}"
+    state: started
+    enabled: yes
 
 - name: Create database user
-  postgresql_user: name={{db_user}} password={{db_pass}} login_unix_socket=/var/run/postgresql/
+  postgresql_user: 
+    name: "{{db_user}}"
+    password: "{{db_pass}}"
+    login_unix_socket: /var/run/postgresql/
   become: true
   become_user: postgres
 
 - name: Create database
-  postgresql_db: name={{db_name}} owner={{db_user}} login_unix_socket=/var/run/postgresql/
+  postgresql_db:
+    name: "{{db_name}}"
+    owner: "{{db_user}}"
+    login_unix_socket: /var/run/postgresql/
   become: true
   become_user: postgres

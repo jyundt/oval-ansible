@@ -1,2 +1,10 @@
 ---
+- name: Deploy db
+  hosts: db
+  roles:
+    - role: db
+  handlers:
+    - include: handlers/main.yml
+
+
 

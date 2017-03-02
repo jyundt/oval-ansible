@@ -1,6 +1,4 @@
 ---
-- include_vars: "secrets.yml"
-
 - name: Upgrade all packages (RHEL)
   yum: 
     name: "*"
@@ -16,11 +14,11 @@
 
 - name: Install ntp
   package:
-    name: "{{ntp}}"
+    name: "{{ntp_package}}"
     update_cache: yes
 
 - name: Enable ntp
-  systemd:
+  service:
     name: "{{ntp_service}}"
     state: started
     enabled: True
@@ -45,6 +43,7 @@
     dest: /etc/ssh/sshd_config
     line: "PermitRootLogin without-password"
     state: present
+    regexp: "^PermitRootLogin"
   notify: Restart sshd
 
 - name: Enable SELinux (RHEL)
@@ -65,23 +64,54 @@
     name: firewalld
 
 - name: Enable firewalld
-  systemd:
+  service:
     name: firewalld
     state: started
     enabled: True
 
-- name: Open firewalld for specified services
+- name: Open firewalld for certbot
   firewalld: 
-    service: "{{item}}"
+    service: https
     state: enabled
-    permanent: true
-  with_items: "{{firewall_exceptions}}"
-  notify: Restart firewalld
+    permanent: True
+    immediate: True
 
 - name: Install EPEL (RHEL)
   yum: 
     name: "{{epel_repo_rpm}}"
   when: ansible_os_family == "RedHat"
+
+- name: Install certbot PPA (Ubuntu)
+  apt_repository:
+    repo: "ppa:certbot/certbot"
+  when: ansible_os_family == "Debian"
+
+- name: Install certbot
+  package:
+    name: "{{certbot_package}}"
+    update_cache: yes
+
+- name: Generate certbot cert
+  command: "{{certbot_package}} certonly -n --keep --standalone -d {{ansible_fqdn}}  --agree-tos --email {{certbot_username}}"
+  args:
+    creates: "/etc/letsencrypt/live/{{ansible_fqdn}}"
+
+- name: Create certbot hooks dir
+  file: 
+    path: /etc/letsencrypt/hooks
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Install certbot cronjob
+  cron:
+    name: "certbot cert renewal"
+    special_time: daily
+    cron_file: certbot
+    user: root
+    state: present
+    job: "/usr/bin/{{certbot_package}} renew -n --keep --standalone --pre-hook /etc/letsencrypt/hooks/pre.sh --post-hook /etc/letsencrypt/hooks/post.sh"
 
 - name: Install sysstat
   package: 
@@ -89,12 +119,13 @@
     update_cache: yes
 
 - name: Enable sysstat
-  systemd:
+  service:
     name: sysstat
     state: started
     enabled: yes
 
-- command: grep "^/swapfile" /proc/swaps
+- name: Check for an active swapfile
+  command: grep "^/swapfile" /proc/swaps
   register: swapfile_result
   ignore_errors: true
 
