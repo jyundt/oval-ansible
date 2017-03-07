@@ -86,6 +86,51 @@
     repo: "ppa:certbot/certbot"
   when: ansible_os_family == "Debian"
 
+- name: Download Postgres RPM GPG key (RHEL)
+  get_url:
+    url: "https://download.postgresql.org/pub/repos/yum/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+    dest: "/etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Add Postgres RPM GPG key (RHEL)
+  rpm_key: 
+    state: present
+    key: "https://download.postgresql.org/pub/repos/yum/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Install Postgres repo (RHEL)
+  yum_repository:
+    name: "pgdg{{postgres_version_no_dot}}"
+    file: "pgdg-{{postgres_version_no_dot}}-redhat"
+    description: "PostgreSQL {{postgres_version}} $releasever - $basearch"
+    baseurl: "https://download.postgresql.org/pub/repos/yum/{{postgres_version}}/redhat/rhel-$releasever-$basearch"
+    gpgcheck: yes
+    gpgkey: "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Include Postgres binaries in PATH (RHEL)
+  lineinfile:
+    dest: /etc/profile.d/postgres.sh
+    line: "export PATH=$PATH:/usr/pgsql-{{postgres_version}}/bin"
+    state: present
+    create: yes
+    owner: root
+    group: root
+    mode: 0644
+  when: ansible_os_family == "RedHat"
+
+- name: Add Postgres APT GPG key (Ubuntu)
+  apt_key: 
+    state: present
+    url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+  when: ansible_os_family == "Debian"
+
+- name: Install Postgres repo (Ubuntu)
+  apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt/ {{ansible_distribution_release}}-pgdg main"
+    state: present
+  when: ansible_os_family == "Debian"
+
 - name: Install certbot
   package:
     name: "{{certbot_package}}"

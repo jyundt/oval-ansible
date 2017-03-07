@@ -1,14 +1,14 @@
 ---
-- include_vars: "{{item}}"
-  with_items:
-    - "{{ansible_nodename}}.yml"
-    - "secrets.yml"
-
 - name: Create application group
-  group: name={{oval_group}} gid={{oval_gid}}
+  group:
+    name: "{{oval_group}}"
+    gid: "{{oval_gid}}"
 
 - name: Create application account
-  user: name={{oval_user}} uid={{oval_uid}} group={{oval_group}}
+  user: 
+    name: "{{oval_user}}"
+    uid: "{{oval_uid}}"
+    group: "{{oval_group}}"
 
 - name: Install ssh pub keys for application account
   authorized_key:
@@ -17,63 +17,145 @@
   with_items: "{{ssh_keys}}"
 
 - name: Create ENV var file for application account
-  template: src=templates/oval_vars.j2 dest={{oval_vars}} mode=0600 owner={{oval_user}} group={{oval_group}}
+  template: 
+    src: templates/oval_vars.j2
+    dest: "{{oval_vars}}"
+    mode: 0600
+    owner: "{{oval_user}}"
+    group: "{{oval_group}}"
   notify:
-    - Restart uWSGI
+    - Restart app server
 
 - name: Add ENV var file to .bashrc
-  lineinfile: dest=/home/{{oval_user}}/.bashrc line="export $(cat {{oval_vars}} | xargs)" state=present 
+  lineinfile:
+    dest: "/home/{{oval_user}}/.bashrc"
+    line: "export $(cat {{oval_vars}} | xargs)"
+    state: present 
 
 - name: Create pgpass file
-  template: src=templates/pgpass.j2 dest=/home/{{oval_user}}/.pgpass mode=0600 owner={{oval_user}} group={{oval_group}}
-
-- name: Create backup directory
-  file: path=/home/{{oval_user}}/db_backup state=directory owner={{oval_user}} group={{oval_group}}
-
-- name: Create DB backup job
-  cron: name="db backup" minute="0" hour="*/6" job="/usr/bin/pg_dump {{db_name}} > /home/{{oval_user}}/db_backup/oval_db_`date +\%s`.sql" user={{oval_user}}
+  template:
+    src: templates/pgpass.j2 
+    dest: "/home/{{oval_user}}/.pgpass"
+    mode: 0600
+    owner: "{{oval_user}}"
+    group: "{{oval_group}}"
 
 - name: Install git client
-  yum: name=git update_cache=yes
+  package: 
+    name: git
+    update_cache: yes
 
 - name: Pull code from git
-  git: repo={{git_repo}} dest={{app_dir}} version={{git_branch}}
+  git: 
+    repo: "{{git_repo}}"
+    dest: "{{app_dir}}"
+    version: "{{git_branch}}"
   become: yes
   become_user: "{{oval_user}}"
   notify: 
-    - Restart uWSGI
+    - Restart app server
     - Upgrade DB schema
 
 - name: Install virtualenv and python deps
-  yum: name={{item}} update_cache=yes
-  with_items:
-    - gcc
-    - python-virtualenv
-    - postgresql-devel
+  package: 
+    name: "{{item}}"
+    update_cache: yes
+  with_items: "{{python_app_deps}}"
 
 - name: Upgrade pip version in virtualenv
-  pip: name=pip virtualenv="{{venv_dir}}" version=8.1.2
+  pip:
+    name: pip
+    virtualenv: "{{venv_dir}}"
+    version: "{{pip_version}}"
+    virtualenv_python: "{{python_version}}"
   become: yes
   become_user: "{{oval_user}}"
 
 - name: Create virtualenv and install pip requirements
-  pip: requirements="{{app_dir}}/requirements.txt" virtualenv="{{venv_dir}}"
+  pip:
+    requirements: "{{app_dir}}/requirements.txt"
+    virtualenv: "{{venv_dir}}"
+    virtualenv_python: "{{python_version}}"
   become: yes
   become_user: "{{oval_user}}"
+  #This is some sort of hack for RHEL (and most likely an ansible bug)
+  #but for some reason the pip module isn't properly picking up the PATH var
+  #that is set from /etc/profile.d/*sh scripts.
+  #specifiaclly, this is impacting the postgres binary pg_config
+  environment:
+    PATH: "{{ansible_env.PATH}}"
 
-- name: Install uWSGI binaries
-  yum: name={{item}} update_cache=yes
-  with_items:
-    - uwsgi
-    - uwsgi-plugin-python
+- name: Install Application server binaries
+  package:
+    name: "{{app_server_packages}}"
+    update_cache: yes
 
-- name: Create uWSGI application .ini
-  template: src=templates/oval.ini.j2 dest="/etc/uwsgi.d/oval.ini" owner={{oval_user}} group={{oval_group}}
-  notify: Restart uWSGI
+- name: Create app server config
+  template: 
+    src: templates/oval.ini.j2 
+    dest: "{{app_server_config}}"
+    owner: "{{oval_user}}"
+    group: "{{oval_group}}"
+  notify: Restart app server
 
-- name: Configure proper SELinux booleans for uWSGI
-  seboolean: name=httpd_can_network_connect state=yes persistent=yes
-  notify: Restart uWSGI
+- name: Copy certbot SSL cert for app server
+  copy:
+    src: "{{lets_encrypt_pub_key}}"
+    dest: "{{app_dir}}/server.crt"
+    owner: "{{oval_user}}"
+    group: "{{oval_group}}"
+    mode: 0644
+    remote_src: True
+    follow: True
+  notify: Restart app server
 
-- name: Start uWSGI application server
-  service: name=uwsgi state=started enabled=yes
+- name: Copy certbot SSL key for app server
+  copy:
+    src: "{{lets_encrypt_priv_key}}"
+    dest: "{{app_dir}}/server.key"
+    owner: "{{oval_user}}"
+    group: "{{oval_group}}"
+    mode: 0400
+    remote_src: True
+    follow: True
+  notify: Restart app server
+
+- name: Add app server prehook for certbot renewal
+  blockinfile:
+    create: True
+    dest: "/etc/letsencrypt/hooks/pre.sh"
+    mode: 0755
+    block: |
+      systemctl stop {{app_server}}
+
+- name: Add app server posthook for certbot renewal
+  blockinfile:
+    create: True
+    dest: "/etc/letsencrypt/hooks/post.sh"
+    mode: 0755
+    block: |
+      cp {{lets_encrypt_priv_key}} {{app_dir}}/server.key
+      cp {{lets_encrypt_pub_key}} {{app_dir}}/server.crt
+      systemctl start {{app_server}}
+
+
+- name: Configure proper SELinux booleans for app server (RHEL)
+  seboolean:
+    name: httpd_can_network_connect
+    state: yes 
+    persistent: yes
+  notify: Restart app server
+  when: ansible_os_family == "RedHat"
+
+- name: Open firewalld for app server
+  firewalld:
+    port: "{{app_server_port}}/tcp"
+    state: enabled
+    permanent: true
+    immediate: True
+
+- name: Start app server
+  service:
+    name: "{{app_server}}"
+    state: started
+    enabled: yes

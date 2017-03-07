@@ -1,1 +1,10 @@
 ---
+- name: Deploy app
+  hosts: app
+  roles:
+    - role: app
+  handlers:
+    - include: handlers/main.yml
+
+
+

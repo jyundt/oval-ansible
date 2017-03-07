@@ -11,3 +11,14 @@ pgdata: "/var/lib/pgsql/{{postgres_version}}/data"
 pgconfdir: "{{pgdata}}"
 pg_hba_conf: "{{pgconfdir}}/pg_hba.conf"
 postgresql_conf: "{{pgconfdir}}/postgresql.conf"
+python_app_deps:
+  - gcc
+  - python-virtualenv
+  - postgresql{{postgres_version_no_dot}}-devel
+  - python-devel
+
+app_server: "uwsgi"
+app_server_config: "/etc/uwsgi.d/oval.ini"
+app_server_packages: 
+  - uwsgi
+  - uwsgi-plugin-python
