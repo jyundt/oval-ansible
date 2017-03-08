@@ -25,7 +25,7 @@
   lineinfile:
     dest: "{{postgresql_conf}}"
     regexp: "^listen_addresses ="
-    line: "listen_addresses = '*'"
+    line: "listen_addresses = '{{ansible_eth1['ipv4']['address']}}, 127.0.0.1'"
   notify: Restart postgres
 
 - name: Modify postgresql.conf to enable ssl
@@ -82,12 +82,15 @@
       cp {{lets_encrypt_pub_key}} {{pgconfdir}}/server.crt
       systemctl start {{postgres_service}}
 
+##This play makes some assumptions that each server will have a pub/priv nic
+##and postgres will only accept connections from the priv nic (eth1)
 - name: Open firewalld for postgres
   firewalld:
     service: postgresql
     state: enabled
     permanent: true
-    immediate: True
+    immediate: true
+    zone: internal
 
 - name: Start/enable Postgres
   service:

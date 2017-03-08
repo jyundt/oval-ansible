@@ -9,6 +9,7 @@
     name: "{{oval_user}}"
     uid: "{{oval_uid}}"
     group: "{{oval_group}}"
+    shell: "{{oval_user_shell}""
 
 - name: Install ssh pub keys for application account
   authorized_key:
@@ -147,12 +148,15 @@
   notify: Restart app server
   when: ansible_os_family == "RedHat"
 
+##This play makes some assumptions that each server will have a pub/priv nic
+##and the app server will only accept connections from the priv nic (eth1)
 - name: Open firewalld for app server
   firewalld:
     port: "{{app_server_port}}/tcp"
     state: enabled
     permanent: true
     immediate: True
+    zone: internal
 
 - name: Start app server
   service:
