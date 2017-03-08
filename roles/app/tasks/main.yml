@@ -9,7 +9,7 @@
     name: "{{oval_user}}"
     uid: "{{oval_uid}}"
     group: "{{oval_group}}"
-    shell: "{{oval_user_shell}""
+    shell: "{{oval_user_shell}}"
 
 - name: Install ssh pub keys for application account
   authorized_key:

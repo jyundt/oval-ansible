@@ -69,12 +69,40 @@
     state: started
     enabled: True
 
+- name: Add eth0 to public firewall
+  firewalld:
+    interface: eth0
+    zone: public
+    permanent: True
+    immediate: True 
+    state: enabled
+
+- name: Add eth1 to private firewall
+  firewalld:
+    interface: eth1
+    zone: internal
+    permanent: True
+    immediate: True 
+    state: enabled
+
+- name: Remove unused services from private firewall
+  firewalld: 
+    service: "{{item}}"
+    state: disabled
+    zone: internal
+    permanent: True
+    immediate: True
+  with_items: 
+    - mdns
+    - samba-client
+
 - name: Open firewalld for certbot
   firewalld: 
     service: https
     state: enabled
     permanent: True
     immediate: True
+    zone: public
 
 - name: Install EPEL (RHEL)
   yum: 
