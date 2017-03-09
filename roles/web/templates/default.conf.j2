@@ -1,0 +1,41 @@
+upstream uwsgicluster {
+    {% for host in groups['app'] %}
+    server {{hostvars[host]['ansible_eth1']['ipv4']['address']}}:5000;
+    {% endfor %}
+}
+
+server {
+    listen       80;
+    server_name  {{ansible_fqdn}} www.{{ansible_fqdn}};
+    return       301 https://{{ansible_fqdn}}$request_uri;
+}
+
+
+server {
+    listen       443 ssl;
+    server_name  {{ansible_fqdn}};
+    ssl_certificate {{lets_encrypt_pub_key}};
+    ssl_certificate_key {{lets_encrypt_priv_key}};
+    ssl_protocols TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers {{ssl_cipher_suite}};
+    ssl_ecdh_curve secp384r1; 
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_tickets off; 
+    ssl_stapling on; 
+    ssl_stapling_verify on;
+    ssl_dhparam /etc/nginx/dhparams.pem;
+ 
+
+    location / {
+        include            uwsgi_params;
+        uwsgi_pass         suwsgi://uwsgicluster;
+
+        proxy_redirect     off;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Host $server_name;
+    }
+}
+

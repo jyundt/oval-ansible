@@ -3,13 +3,11 @@
   service: 
     name: "{{postgres_service}}"
     state: restarted
-  listen: "Restart postgres"
 
 - name: Restart sshd
   service:
     name: sshd
     state: restarted
-  listen: "Restart sshd"
 
 - name: Restart app server
   service:
@@ -22,3 +20,8 @@
     chdir: "{{app_dir}}"
   become: true
   become_user: "{{oval_user}}"
+
+- name: Restart nginx
+  service:
+    name: nginx
+    state: restarted
