@@ -1,16 +1,16 @@
 ---
 - name: Restart postgres
-  service: 
-    name: "{{postgres_service}}"
+  systemd: 
+    name: "{{postgres_systemd}}"
     state: restarted
 
 - name: Restart sshd
-  service:
+  systemd:
     name: sshd
     state: restarted
 
 - name: Restart app server
-  service:
+  systemd:
     name: "{{app_server}}" 
     state: restarted
 
@@ -22,6 +22,6 @@
   become_user: "{{oval_user}}"
 
 - name: Restart nginx
-  service:
+  systemd:
     name: nginx
     state: restarted

@@ -1,7 +1,7 @@
 ---
 ntp_package: "chrony"
 ntp_service: "chronyd"
-epel_repo_rpm: "https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm"
+epel_repo_rpm: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ansible_distribution_major_version}}.noarch.rpm"
 postgres_package: "postgresql{{postgres_version_no_dot}}-server"
 postgres_service: "postgresql-{{postgres_version}}"
 ansible_postgres_deps:

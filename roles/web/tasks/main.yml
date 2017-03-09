@@ -49,6 +49,28 @@
   notify:
     - Restart nginx
 
+- name: Create nginx ssl cert directory
+  file:
+    path: /etc/nginx/ssl
+    owner: root
+    group: root
+    mode: 0600
+    state: directory
+
+- name: Copy theoval.us SSL cert and key
+  copy: 
+    src: "files/{{item}}"
+    dest: "/etc/nginx/ssl/{{item}}"
+    mode: 0600
+    owner: root
+    group: root
+  with_items:
+    - "theoval.us_cert.pem"
+    - "theoval.us_privkey.pem"
+  notify:
+    - Restart nginx
+  
+
 - name: Create strong Diffie Hellman key
   command: openssl dhparam -out /etc/nginx/dhparams.pem 2048
   args: 
