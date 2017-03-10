@@ -1,0 +1,5 @@
+#!/bin/bash
+source {{oval_homedir}}/.bashrc
+. {{app_dir}}/venv/bin/activate
+cd {{app_dir}}
+./manage.py db upgrade  

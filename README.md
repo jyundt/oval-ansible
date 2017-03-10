@@ -57,6 +57,8 @@ All variables are defined in [group_vars/all/vars.yml](group_vars/all/vars.yml) 
 
 Some application components (like the postgres version) can be overridden by these variables.  By default postgres 9.6 is installed/configured. However, overriding the `postgres_version` variable will change this behavior.
 
+There are application "environment" specific settings (google analytics keys, strava tokens, etc) that can be modified by changing `oval_environment` to `PRD`, `TST` or `DEV`.  The `PRD` environment is set as the default.
+
 ### Operating System Specific Variables
 CentOS/Ubuntu specific variables are stored in [group_vars/os_RedHat.yml](group_vars/os_RedHat.yml) and [group_vars/os_Debian](group_vars/os_Debian) respectively.
 

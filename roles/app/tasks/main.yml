@@ -10,6 +10,7 @@
     uid: "{{oval_uid}}"
     group: "{{oval_group}}"
     shell: "{{oval_user_shell}}"
+    home: "{{oval_homedir}}"
 
 - name: Install ssh pub keys for application account
   authorized_key:
@@ -29,14 +30,14 @@
 
 - name: Add ENV var file to .bashrc
   lineinfile:
-    dest: "/home/{{oval_user}}/.bashrc"
+    dest: "{{oval_homedir}}/.bashrc"
     line: "export $(cat {{oval_vars}} | xargs)"
     state: present 
 
 - name: Create pgpass file
   template:
     src: templates/pgpass.j2 
-    dest: "/home/{{oval_user}}/.pgpass"
+    dest: "{{oval_homedir}}/.pgpass"
     mode: 0600
     owner: "{{oval_user}}"
     group: "{{oval_group}}"
@@ -85,6 +86,20 @@
   #specifiaclly, this is impacting the postgres binary pg_config
   environment:
     PATH: "{{ansible_env.PATH}}"
+  notify: 
+    - Restart app server
+    - Upgrade DB schema
+
+- name: Create database migration/upgrade script
+  template:
+    src: templates/db_upgrade.sh.j2
+    dest: "{{oval_homedir}}/db_upgrade.sh"
+    owner: oval
+    group: oval
+    mode: 0755
+  notify: 
+    - Restart app server
+    - Upgrade DB schema
 
 - name: Install Application server binaries
   package:

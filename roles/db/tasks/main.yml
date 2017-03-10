@@ -131,6 +131,6 @@
     special_time: daily
     user: postgres
     state: present
-    job: "/usr/bin/pg_dump {{db_name}}  | xz >  {{pgdata}}/backups/{{db_name}}_db_$(date +\\%Y\\%m\\%d).sql.xz"
+    job: "/usr/bin/pg_dump {{db_name}}  | xz >  {{pgdata}}/backups/{{db_name}}_db_{{ansible_fqdn}}_$(date +\\%Y\\%m\\%d).sql.xz"
 
 

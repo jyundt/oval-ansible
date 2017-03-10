@@ -10,3 +10,12 @@
 - include: app.yml
 - include: web.yml
 
+- name: Notify slack
+  hosts: all
+  tasks: 
+    - name: Send slack notifications
+      slack:
+        token: "{{slack_ansible_api_token}}"
+        msg: "Deploy of branch `{{git_branch}}` to {{inventory_hostname}} completed"
+        channel: "{{slack_channel}}"
+
