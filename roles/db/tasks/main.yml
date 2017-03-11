@@ -121,6 +121,21 @@
     owner: postgres
     group: postgres
     mode: 0755
+
+- name: Install awscli for S3 backups
+  package:
+    name: awscli
+    update_cache: yes
+
+- name: Copy AWS S3 credentials
+  lineinfile:
+    dest: "{{'~postgres'|expanduser}}/.bashrc"
+    line: "export {{item.variable}}=\"{{item.value}}\""
+    regexp: "^export {{item.variable}}="
+    create: true
+  with_items:
+    - { variable: 'AWS_ACCESS_KEY_ID', value: "{{s3_aws_access_key}}" }
+    - { variable: 'AWS_SECRET_ACCESS_KEY', value: "{{s3_aws_secret_key}}"}
   
 - name: Create DB backup job
   cron:
@@ -129,6 +144,15 @@
     special_time: daily
     user: postgres
     state: present
-    job: "/usr/bin/pg_dump {{db_name}}  | xz >  {{pgdata}}/backups/{{db_name}}_db_{{ansible_fqdn}}_$(date +\\%Y\\%m\\%d).sql.xz"
+    job: "/usr/bin/pg_dump {{db_name}}  | xz >  {{pgdata}}/backups/{{db_name}}_db_{{ansible_fqdn}}_$(date +\\%Y\\%m\\%d).sql.xz && aws s3 cp {{pgdata}}/backups/{{db_name}}_db_{{ansible_fqdn}}_$(date +\\%Y\\%m\\%d).sql.xz s3://{{s3_bucket_name}}/{{ansible_fqdn}}/{{db_name}}_db_{{ansible_fqdn}}_$(date +\\%Y\\%m\\%d).sql.xz"
 
-
+- name: Add DB backup job credentials
+  cron:
+    name: "{{item.variable}}"
+    env: yes
+    value: "{{item.value}}"
+    cron_file: db_backup
+    user: postgres
+  with_items:
+    - { variable: 'AWS_ACCESS_KEY_ID', value: "{{s3_aws_access_key}}" }
+    - { variable: 'AWS_SECRET_ACCESS_KEY', value: "{{s3_aws_secret_key}}"}
