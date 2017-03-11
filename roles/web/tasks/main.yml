@@ -37,7 +37,6 @@
     state: enabled
     permanent: True
     immediate: True
-    zone: public
   with_items:
     - http
     - https

@@ -1,6 +1,6 @@
 upstream uwsgicluster {
     {% for host in groups['app'] %}
-    server {{hostvars[host]['ansible_eth1']['ipv4']['address']}}:5000;
+    server {{hostvars[host]['ansible_default_ipv4']['address']}}:5000;
     {% endfor %}
 }
 

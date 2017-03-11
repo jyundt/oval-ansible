@@ -1,4 +1,6 @@
 # TYPE    DATABASE        USER            ADDRESS                 METHOD
 local     all             all                                     peer
-hostssl   all             all             all                     md5
+{% for host in groups['app'] %}
+hostssl   all             all           {{hostvars[host]['ansible_default_ipv4']['address']}}/32                   md5
+{% endfor %}
 hostnossl all             all             all                     reject

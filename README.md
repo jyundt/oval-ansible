@@ -18,9 +18,7 @@ Both postgres and nginx are installed from the "upstream" apt/yum repos (instead
 There is a fourth [base](roles/base) role that applies to _all_ hosts.  This base role includes stuff like ntp, certbot, additional ssh keys, etc.
 
 ## Networking
-The playbook assumes each host will have a "public" and "private" network.  Both public and private network interfaces are firewalled. Only tcp ports 80/443 are exposed on the public interface of each webserver. (All servers have tcp port 443 open for `certbot` certificate renewal.)
-
-All `WEB <-> APP <-> DB` traffic occurs over the private network using TLS v1.2.
+All `WEB <-> APP <-> DB` traffic occurs over the network using TLS v1.2.  Firewalld is used to expose the DB and uWSGI to (only) the application servers and web servers respectively.
 
 By default, all application servers will connect to the **first** database server listed in the `[db]` ansible group.  The current deployment is designed to utilize a single postgres DB instance.  Multiple DB servers can be deployed, however, only the first DB server will be used by the application servers.
 

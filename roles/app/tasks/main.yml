@@ -165,15 +165,13 @@
   notify: Restart app server
   when: ansible_os_family == "RedHat"
 
-##This play makes some assumptions that each server will have a pub/priv nic
-##and the app server will only accept connections from the priv nic (eth1)
-- name: Open firewalld for app server
+- name: Open firewalld for app server 
   firewalld:
-    port: "{{app_server_port}}/tcp"
+    rich_rule: "rule family=\"ipv4\" port port=\"5000\" protocol=\"tcp\" source address=\"{{hostvars[item]['ansible_default_ipv4']['address']}}\" accept"
     state: enabled
     permanent: true
-    immediate: True
-    zone: internal
+    immediate: true
+  with_items: "{{groups['web']}}"
 
 - name: Start/enable app server
   service:

@@ -16,8 +16,8 @@
   when: ansible_os_family == "RedHat"
 
 - name: Create pg_hba.conf file
-  copy: 
-    src: files/pg_hba.conf
+  template: 
+    src: templates/pg_hba.conf.j2
     dest: "{{pg_hba_conf}}"
   notify: Restart postgres
 
@@ -25,7 +25,7 @@
   lineinfile:
     dest: "{{postgresql_conf}}"
     regexp: "^listen_addresses ="
-    line: "listen_addresses = '{{ansible_eth1['ipv4']['address']}}, 127.0.0.1'"
+    line: "listen_addresses = '*'"
   notify: Restart postgres
 
 - name: Modify postgresql.conf to enable ssl
@@ -84,15 +84,13 @@
       cp {{lets_encrypt_pub_key}} {{pgconfdir}}/server.crt
       systemctl start {{postgres_service}}
 
-##This play makes some assumptions that each server will have a pub/priv nic
-##and postgres will only accept connections from the priv nic (eth1)
 - name: Open firewalld for postgres
   firewalld:
-    service: postgresql
+    rich_rule: "rule family=\"ipv4\" service name=\"postgresql\" source address=\"{{hostvars[item]['ansible_default_ipv4']['address']}}\" accept"
     state: enabled
     permanent: true
     immediate: true
-    zone: internal
+  with_items: "{{groups['app']}}"
 
 - name: Start/enable Postgres
   service:
