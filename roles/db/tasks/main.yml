@@ -14,6 +14,13 @@
   args:
     creates: "{{pg_hba_conf}}"
   when: ansible_os_family == "RedHat"
+ 
+- name: Add pg_config to alternatives (RHEL)
+  alternatives:
+    name: pgsql-pg_config
+    path: /usr/pgsql-{{postgres_version}}/bin/pg_config
+    link: /usr/bin/pg_config 
+  when: ansible_os_family == "RedHat"
 
 - name: Create pg_hba.conf file
   template: 

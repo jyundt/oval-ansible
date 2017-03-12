@@ -64,6 +64,13 @@
     update_cache: yes
   with_items: "{{python_app_deps}}"
 
+- name: Add pg_config to alternatives (RHEL)
+  alternatives:
+    name: pgsql-pg_config
+    path: /usr/pgsql-{{postgres_version}}/bin/pg_config
+    link: /usr/bin/pg_config 
+  when: ansible_os_family == "RedHat"
+
 - name: Upgrade pip version in virtualenv
   pip:
     name: pip
@@ -80,12 +87,6 @@
     virtualenv_python: "{{python_version}}"
   become: yes
   become_user: "{{oval_user}}"
-  #This is some sort of hack for RHEL (and most likely an ansible bug)
-  #but for some reason the pip module isn't properly picking up the PATH var
-  #that is set from /etc/profile.d/*sh scripts.
-  #specifiaclly, this is impacting the postgres binary pg_config
-  environment:
-    PATH: "{{ansible_env.PATH}}"
   notify: 
     - Restart app server
     - Upgrade DB schema
