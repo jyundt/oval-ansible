@@ -57,6 +57,10 @@ Some application components (like the postgres version) can be overridden by the
 
 There are application "environment" specific settings (google analytics keys, strava tokens, etc) that can be modified by changing `oval_environment` to `PRD`, `TST` or `DEV`.  The `PRD` environment is set as the default.
 
+### SSL certificates
+In order to avoid any Let's Encrypt (certbot) [certificate generation limits](https://letsencrypt.org/docs/rate-limits/), set `oval_environment` to `DEV` or `TST`. All non `PRD` environments will use the certbot staging server which is **not** subject to these rate limits.  However, these non `PRD` certificates will **not** be trusted by most browsers by default.
+
+
 ### Operating System Specific Variables
 CentOS/Ubuntu specific variables are stored in [group_vars/os_RedHat.yml](group_vars/os_RedHat.yml) and [group_vars/os_Debian](group_vars/os_Debian) respectively.
 

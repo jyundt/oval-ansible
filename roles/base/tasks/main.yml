@@ -136,10 +136,17 @@
     name: "{{certbot_package}}"
     update_cache: yes
 
-- name: Generate certbot cert
+- name: Generate certbot cert (PRD)
   command: "{{certbot_package}} certonly -n --keep --standalone -d {{ansible_fqdn}}  --agree-tos --email {{certbot_username}}"
   args:
     creates: "/etc/letsencrypt/live/{{ansible_fqdn}}"
+  when: oval_environment == "PRD"
+
+- name: Generate certbot cert (STAGING)
+  command: "{{certbot_package}} certonly --staging -n --keep --standalone -d {{ansible_fqdn}}  --agree-tos --email {{certbot_username}}"
+  args:
+    creates: "/etc/letsencrypt/live/{{ansible_fqdn}}"
+  when: oval_environment != "PRD"
 
 - name: Create certbot hooks dir
   file: 
@@ -149,7 +156,7 @@
     owner: root
     group: root
 
-- name: Install certbot cronjob
+- name: Install certbot cronjob (PRD)
   cron:
     name: "certbot cert renewal"
     special_time: daily
@@ -157,6 +164,17 @@
     user: root
     state: present
     job: "/usr/bin/{{certbot_package}} renew -n --keep --standalone --pre-hook /etc/letsencrypt/hooks/pre.sh --post-hook /etc/letsencrypt/hooks/post.sh"
+  when: oval_environment == "PRD"
+
+- name: Install certbot cronjob (STAGING)
+  cron:
+    name: "certbot cert renewal"
+    special_time: daily
+    cron_file: certbot
+    user: root
+    state: present
+    job: "/usr/bin/{{certbot_package}} renew -n --keep --standalone --pre-hook /etc/letsencrypt/hooks/pre.sh --post-hook /etc/letsencrypt/hooks/post.sh"
+  when: oval_environment != "PRD"
 
 - name: Install sysstat
   package: 
