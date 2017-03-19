@@ -13,7 +13,7 @@ The three application components are divided in Ansible roles:
 * [app](roles/app) 
 * [web](roles/web) 
 
-Both postgres and nginx are installed from the "upstream" apt/yum repos (instead of the base CentOS or Ubuntu repos).  This provides a semi-consistent across operating systems.
+Both postgres and nginx are installed from the "upstream" apt/yum repos (instead of the base CentOS or Ubuntu repos).  This provides a semi-consistent experience between across operating systems.
 
 There is a fourth [base](roles/base) role that applies to _all_ hosts.  This base role includes stuff like ntp, certbot, additional ssh keys, etc.
 
@@ -62,7 +62,7 @@ In order to avoid any Let's Encrypt (certbot) [certificate generation limits](ht
 
 
 ### Operating System Specific Variables
-CentOS/Ubuntu specific variables are stored in [group_vars/os_RedHat.yml](group_vars/os_RedHat.yml) and [group_vars/os_Debian](group_vars/os_Debian) respectively.
+CentOS/Ubuntu specific variables are stored in [group_vars/os_RedHat.yml](group_vars/os_RedHat.yml) and [group_vars/os_Debian](group_vars/os_Debian.yml) respectively.
 
 Some packages (e.g. `python-devel` vs. `python-dev`) are named differently between distributions. These OS specific config files normalize variable names.
 
