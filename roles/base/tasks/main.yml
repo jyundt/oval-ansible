@@ -180,6 +180,7 @@
   command: grep "^/swapfile" /proc/swaps
   register: swapfile_result
   ignore_errors: true
+  changed_when: False
 
 - name: Create swap file
   command: dd if=/dev/zero of=/swapfile bs=1M count=2048
