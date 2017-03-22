@@ -6,14 +6,14 @@ upstream uwsgicluster {
 
 server {
     listen       80;
-    server_name  {{ansible_fqdn}} www.{{ansible_fqdn}};
-    return       301 https://{{ansible_fqdn}}$request_uri;
+    server_name  {{inventory_hostname}} www.{{inventory_hostname}};
+    return       301 https://{{inventory_hostname}}$request_uri;
 }
 
 
 server {
     listen       443 ssl;
-    server_name  {{ansible_fqdn}};
+    server_name  {{inventory_hostname}};
     add_header Strict-Transport-Security "max-age=31536000; 
     includeSubDomains";
     ssl_certificate {{lets_encrypt_pub_key}};
