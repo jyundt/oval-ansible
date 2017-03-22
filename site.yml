@@ -1,0 +1,21 @@
+- name: import OS variables
+  hosts: all
+  tasks:
+    - include_vars: "group_vars/os_{{ansible_os_family}}.yml"
+  handlers:
+    - include: handlers/main.yml
+
+- include: base.yml
+- include: db.yml
+- include: app.yml
+- include: web.yml
+
+- name: Notify slack
+  hosts: all
+  tasks: 
+    - name: Send slack notifications
+      slack:
+        token: "{{slack_ansible_api_token}}"
+        msg: "Deploy of branch `{{git_branch}}` to {{inventory_hostname}} completed"
+        channel: "{{slack_channel}}"
+

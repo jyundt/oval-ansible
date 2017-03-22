@@ -1,72 +1,212 @@
 ---
-- include_vars: "secrets.yml"
+- name: Upgrade all packages (RHEL)
+  yum: 
+    name: "*"
+    state: latest 
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
 
-- name: Upgrade all packages
-  yum: name=* state=latest  update_cache=yes
+- name: Upgrade all packages (Ubuntu)
+  apt:
+    upgrade: dist
+    update_cache: yes
+  when: ansible_os_family == "Debian"
 
-- name: Install NTP
-  yum: name=ntp update_cache=yes
+- name: Install ntp
+  package:
+    name: "{{ntp_package}}"
+    update_cache: yes
 
-- name: Enable NTP
-  service: name=ntpd state=started enabled=yes
+- name: Enable ntp
+  service:
+    name: "{{ntp_service}}"
+    state: started
+    enabled: True
 
-- name: Install SElinux deps
-  yum: name={{item}} update_cache=yes
+- name: Install SELinux deps (RHEL)
+  yum: 
+    name: "{{item}}"
+    update_cache: yes
   with_items:
   - libsemanage-python
   - libselinux-python
+  when: ansible_os_family == "RedHat"
 
 - name: Install ssh pub keys for root
-  authorized_key: 
+  authorized_key:
     user: root
     key: '{{lookup("file", item)}}'
   with_items: "{{ssh_keys}}"
 
 - name: Disable password based root access
-  lineinfile: dest=/etc/ssh/sshd_config line="PermitRootLogin without-password" state=present
+  lineinfile: 
+    dest: /etc/ssh/sshd_config
+    line: "PermitRootLogin without-password"
+    state: present
+    regexp: "^PermitRootLogin"
   notify: Restart sshd
 
-- name: Enable SELinux
-  selinux: policy=targeted state=enforcing
+- name: Enable SELinux (RHEL)
+  selinux: 
+    policy: targeted
+    state: enforcing
+  when: ansible_os_family == "RedHat"
+
+- name: Remove ufw (Ubuntu)
+  apt:
+    name: ufw
+    state: absent
+    purge: yes
+  when: ansible_os_family == "Debian"
 
 - name: Install firewalld
-  yum: name=firewalld update_cache=yes
+  package:
+    name: firewalld
 
 - name: Enable firewalld
-  service: name=firewalld state=started enabled=yes
+  service:
+    name: firewalld
+    state: started
+    enabled: True
 
-- name: Open firewalld for specified services
-  firewalld: service={{item}} state=enabled permanent=true
-  with_items: "{{firewall_exceptions}}"
-  notify: Restart firewalld
+- name: Open firewalld for certbot
+  firewalld: 
+    service: https
+    state: enabled
+    permanent: True
+    immediate: True
 
-- name: Install EPEL
-  yum: name=https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm
+- name: Install EPEL (RHEL)
+  yum: 
+    name: "{{epel_repo_rpm}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Install certbot PPA (Ubuntu)
+  apt_repository:
+    repo: "ppa:certbot/certbot"
+  when: ansible_os_family == "Debian"
+
+- name: Download Postgres RPM GPG key (RHEL)
+  get_url:
+    url: "https://download.postgresql.org/pub/repos/yum/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+    dest: "/etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Add Postgres RPM GPG key (RHEL)
+  rpm_key: 
+    state: present
+    key: "https://download.postgresql.org/pub/repos/yum/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Install Postgres repo (RHEL)
+  yum_repository:
+    name: "pgdg{{postgres_version_no_dot}}"
+    file: "pgdg-{{postgres_version_no_dot}}-redhat"
+    description: "PostgreSQL {{postgres_version}} $releasever - $basearch"
+    baseurl: "https://download.postgresql.org/pub/repos/yum/{{postgres_version}}/redhat/rhel-$releasever-$basearch"
+    gpgcheck: yes
+    gpgkey: "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG-{{postgres_version_no_dot}}"
+  when: ansible_os_family == "RedHat"
+
+- name: Include Postgres binaries in PATH (RHEL)
+  lineinfile:
+    dest: /etc/profile.d/postgres.sh
+    line: "export PATH=$PATH:/usr/pgsql-{{postgres_version}}/bin"
+    state: present
+    create: yes
+    owner: root
+    group: root
+    mode: 0644
+  when: ansible_os_family == "RedHat"
+
+- name: Add Postgres APT GPG key (Ubuntu)
+  apt_key: 
+    state: present
+    url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+  when: ansible_os_family == "Debian"
+
+- name: Install Postgres repo (Ubuntu)
+  apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt/ {{ansible_distribution_release}}-pgdg main"
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install certbot
+  package:
+    name: "{{certbot_package}}"
+    update_cache: yes
+
+- name: Generate certbot cert (PRD)
+  command: "{{certbot_package}} certonly -n --keep --standalone -d {{inventory_hostname}}  --agree-tos --email {{certbot_username}}"
+  args:
+    creates: "/etc/letsencrypt/live/{{inventory_hostname}}"
+  when: oval_environment == "PRD"
+
+- name: Generate certbot cert (STAGING)
+  command: "{{certbot_package}} certonly --staging -n --keep --standalone -d {{inventory_hostname}}  --agree-tos --email {{certbot_username}}"
+  args:
+    creates: "/etc/letsencrypt/live/{{inventory_hostname}}"
+  when: oval_environment != "PRD"
+
+- name: Create certbot hooks dir
+  file: 
+    path: /etc/letsencrypt/hooks
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Install certbot cronjob
+  cron:
+    name: "certbot cert renewal"
+    special_time: daily
+    cron_file: certbot
+    user: root
+    state: present
+    job: "/usr/bin/{{certbot_package}} renew -n --keep --standalone --pre-hook /etc/letsencrypt/hooks/pre.sh --post-hook /etc/letsencrypt/hooks/post.sh"
 
 - name: Install sysstat
-  yum: name=sysstat update_cache=yes
+  package: 
+    name: sysstat
+    update_cache: yes
 
 - name: Enable sysstat
-  service: name=sysstat state=started enabled=yes
+  service:
+    name: sysstat
+    state: started
+    enabled: yes
 
-- command: grep "^/swapfile" /proc/swaps
-  register: swapfile_result 
+- name: Check for an active swapfile
+  command: grep "^/swapfile" /proc/swaps
+  register: swapfile_result
   ignore_errors: true
+  changed_when: False
 
 - name: Create swap file
   command: dd if=/dev/zero of=/swapfile bs=1M count=2048
   when: swapfile_result.rc != 0
 
 - name: Format swap file
-  command: mkswap /swapfile 
+  command: mkswap /swapfile
   when: swapfile_result.rc != 0
-  
+
 - name: Change perms on swap file
-  file: path=/swapfile owner=root group=root mode=0600
+  file: 
+    path: /swapfile
+    owner: root
+    group: root
+    mode: 0600
 
 - name: Swapon swap file
   command: swapon /swapfile
   when: swapfile_result.rc != 0
 
 - name: Update fstab with swap file
-  mount: name=none src=/swapfile fstype=swap opts=sw passno=0 dump=0 state=present
+  mount: 
+    name: none
+    src: /swapfile
+    fstype: swap 
+    opts: sw 
+    passno: 0 
+    dump: 0
+    state: present

@@ -1,0 +1,33 @@
+---
+- name: Restart postgres
+  systemd: 
+    name: "{{postgres_service}}"
+    state: restarted
+
+- name: Restart sshd
+  systemd:
+    name: sshd
+    state: restarted
+
+- name: Restart app server
+  systemd:
+    name: "{{app_server}}" 
+    state: restarted
+
+- name: Upgrade DB schema
+  command: "{{oval_homedir}}/db_upgrade.sh"
+  become: true
+  become_user: "{{oval_user}}"
+  run_once: true
+  #This is a hack to address some strange Ubuntu + ansible behavior 
+  #that prevents ENV vars from getting set properly
+  environment:
+    DB_NAME: "{{db_name}}"
+    DB_HOST: "{{db_host}}"
+    DB_PASS: "{{db_pass}}"
+    DB_USER: "{{db_user}}"
+
+- name: Restart nginx
+  systemd:
+    name: nginx
+    state: restarted

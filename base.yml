@@ -1,0 +1,7 @@
+---
+- name: Deploy base
+  hosts: all
+  roles:
+    - role: base
+  handlers:
+    - include: handlers/main.yml

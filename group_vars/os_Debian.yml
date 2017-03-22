@@ -1,0 +1,23 @@
+---
+ntp_package: "ntp"
+ntp_service: "{{ntp_package}}"
+postgres_package: "postgresql-{{postgres_version}}"
+postgres_service: "postgresql"
+ansible_postgres_deps:
+  - python3-psycopg2
+certbot_package: "certbot"
+pgdata: "/var/lib/postgresql/{{postgres_version}}/main"
+pgconfdir: "/etc/postgresql/{{postgres_version}}/main"
+pg_hba_conf: "{{pgconfdir}}/pg_hba.conf"
+postgresql_conf: "{{pgconfdir}}/postgresql.conf"
+python_app_deps:
+  - gcc
+  - python-virtualenv
+  - postgresql-server-dev-{{postgres_version}}
+  - python-dev
+
+app_server: "uwsgi"
+app_server_config: "/etc/uwsgi/apps-enabled/oval.ini"
+app_server_packages: 
+  - uwsgi
+  - uwsgi-plugin-python

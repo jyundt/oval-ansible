@@ -1,32 +1,165 @@
 ---
-- include_vars: "{{ansible_nodename}}.yml"
+- name: Install Postgres
+  package:
+    name: "{{postgres_package}}"
+    update_cache: yes
 
-- name: Install Postgres    
-  yum: name=postgresql-server update_cache=yes
+- name: Install Postgres deps
+  package: 
+    name: "{{ansible_postgres_deps}}"
+    update_cache: yes
 
-- name: Install psycopg2
-  yum: name=python-psycopg2 update_cache=yes
+- name: Initialize Postgres (RHEL)
+  command: "/usr/pgsql-{{postgres_version}}/bin/postgresql{{postgres_version_no_dot}}-setup initdb"
+  args:
+    creates: "{{pg_hba_conf}}"
+  when: ansible_os_family == "RedHat"
+ 
+- name: Add pg_config to alternatives (RHEL)
+  alternatives:
+    name: pgsql-pg_config
+    path: /usr/pgsql-{{postgres_version}}/bin/pg_config
+    link: /usr/bin/pg_config 
+  when: ansible_os_family == "RedHat"
 
-- name: Initialize Postgres
-  command: /usr/bin/postgresql-setup initdb creates=/var/lib/pgsql/data/pg_hba.conf
-
-- name: Enable password based auth for localhost ipv4
-  lineinfile: dest=/var/lib/pgsql/data/pg_hba.conf regexp="^host    all             all             127.0.0.1/32" line="host    all             all             127.0.0.1/32            md5"
+- name: Create pg_hba.conf file
+  template: 
+    src: templates/pg_hba.conf.j2
+    dest: "{{pg_hba_conf}}"
   notify: Restart postgres
 
-- name: Enable password based auth for localhost ipv6
-  lineinfile: dest=/var/lib/pgsql/data/pg_hba.conf regexp="^host    all             all             ::1/128" line="host    all             all             ::1/128                 md5"
+- name: Modify postgresql.conf to listen on all interfaces
+  lineinfile:
+    dest: "{{postgresql_conf}}"
+    regexp: "^listen_addresses ="
+    line: "listen_addresses = '*'"
   notify: Restart postgres
-  
+
+- name: Modify postgresql.conf to enable ssl
+  lineinfile:
+    dest: "{{postgresql_conf}}"
+    regexp: "^ssl = "
+    line: "ssl = true"
+  notify: Restart postgres
+
+- name: Modify postgresql.conf to enable strong ciphers
+  lineinfile:
+    dest: "{{postgresql_conf}}"
+    regexp: "^ssl_ciphers = "
+    line: "ssl_ciphers = '{{ssl_cipher_suite}}'"
+  notify: Restart postgres
+
+- name: Copy certbot SSL cert for postgres
+  copy:
+    src: "{{lets_encrypt_pub_key}}"
+    dest: "{{pgconfdir}}/server.crt"
+    owner: postgres
+    group: postgres
+    mode: 0644
+    remote_src: True
+    follow: True
+  notify: Restart postgres
+
+- name: Copy certbot SSL key for postgres
+  copy:
+    src: "{{lets_encrypt_priv_key}}"
+    dest: "{{pgconfdir}}/server.key"
+    owner: postgres
+    group: postgres
+    mode: 0400
+    remote_src: True
+    follow: True
+  notify: Restart postgres
+
+- name: Add postgres prehook for certbot renewal
+  blockinfile:
+    create: True
+    dest: "/etc/letsencrypt/hooks/pre.sh"
+    mode: 0755
+    marker: "# {mark} ANSIBLE MANAGED BLOCK postgres pre hook"
+    block: |
+      systemctl stop {{postgres_service}}
+
+- name: Add postgres posthook for certbot renewal
+  blockinfile:
+    create: True
+    dest: "/etc/letsencrypt/hooks/post.sh"
+    mode: 0755
+    marker: "# {mark} ANSIBLE MANAGED BLOCK postgres post hook"
+    block: |
+      cp {{lets_encrypt_priv_key}} {{pgconfdir}}/server.key
+      cp {{lets_encrypt_pub_key}} {{pgconfdir}}/server.crt
+      systemctl start {{postgres_service}}
+
+- name: Open firewalld for postgres
+  firewalld:
+    rich_rule: "rule family=\"ipv4\" service name=\"postgresql\" source address=\"{{hostvars[item]['ansible_default_ipv4']['address']}}\" accept"
+    state: enabled
+    permanent: true
+    immediate: true
+  with_items: "{{groups['app']}}"
+
 - name: Start/enable Postgres
-  service: name=postgresql state=started enabled=yes
+  service:
+    name: "{{postgres_service}}"
+    state: started
+    enabled: yes
 
 - name: Create database user
-  postgresql_user: name={{db_user}} password={{db_pass}} login_unix_socket=/var/run/postgresql/
+  postgresql_user: 
+    name: "{{db_user}}"
+    password: "{{db_pass}}"
+    login_unix_socket: /var/run/postgresql/
   become: true
   become_user: postgres
 
 - name: Create database
-  postgresql_db: name={{db_name}} owner={{db_user}} login_unix_socket=/var/run/postgresql/
+  postgresql_db:
+    name: "{{db_name}}"
+    owner: "{{db_user}}"
+    login_unix_socket: /var/run/postgresql/
   become: true
   become_user: postgres
+
+- name: Create DB backup directory
+  file: 
+    path: "{{pgdata}}/backups"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: 0755
+
+- name: Install awscli for S3 backups
+  package:
+    name: awscli
+    update_cache: yes
+
+- name: Copy AWS S3 credentials
+  lineinfile:
+    dest: "{{'~postgres'|expanduser}}/.bashrc"
+    line: "export {{item.variable}}=\"{{item.value}}\""
+    regexp: "^export {{item.variable}}="
+    create: true
+  with_items:
+    - { variable: 'AWS_ACCESS_KEY_ID', value: "{{s3_aws_access_key}}" }
+    - { variable: 'AWS_SECRET_ACCESS_KEY', value: "{{s3_aws_secret_key}}"}
+  
+- name: Create DB backup job
+  cron:
+    name: "db backup" 
+    cron_file: db_backup
+    special_time: daily
+    user: postgres
+    state: present
+    job: "/usr/bin/pg_dump {{db_name}}  | xz >  {{pgdata}}/backups/{{db_name}}_db_{{inventory_hostname}}_$(date +\\%Y\\%m\\%d).sql.xz && aws s3 sync {{pgdata}}/backups/ s3://{{s3_bucket_name}}/{{inventory_hostname}}/"
+
+- name: Update cron ENV vars with AWS S3 credentials
+  cron:
+    name: "{{item.variable}}"
+    env: yes
+    value: "{{item.value}}"
+    cron_file: db_backup
+    user: postgres
+  with_items:
+    - { variable: 'AWS_ACCESS_KEY_ID', value: "{{s3_aws_access_key}}" }
+    - { variable: 'AWS_SECRET_ACCESS_KEY', value: "{{s3_aws_secret_key}}"}

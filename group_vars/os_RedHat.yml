@@ -1,0 +1,24 @@
+---
+ntp_package: "chrony"
+ntp_service: "chronyd"
+epel_repo_rpm: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ansible_distribution_major_version}}.noarch.rpm"
+postgres_package: "postgresql{{postgres_version_no_dot}}-server"
+postgres_service: "postgresql-{{postgres_version}}"
+ansible_postgres_deps:
+  - python-psycopg2
+certbot_package: "certbot"
+pgdata: "/var/lib/pgsql/{{postgres_version}}/data"
+pgconfdir: "{{pgdata}}"
+pg_hba_conf: "{{pgconfdir}}/pg_hba.conf"
+postgresql_conf: "{{pgconfdir}}/postgresql.conf"
+python_app_deps:
+  - gcc
+  - python-virtualenv
+  - postgresql{{postgres_version_no_dot}}-devel
+  - python-devel
+
+app_server: "uwsgi"
+app_server_config: "/etc/uwsgi.d/oval.ini"
+app_server_packages: 
+  - uwsgi
+  - uwsgi-plugin-python
