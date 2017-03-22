@@ -1,7 +1,7 @@
 [uwsgi]
 uid = {{oval_user}}
 gid = {{oval_group}}
-ssl-socket = :{{app_server_port}},{{app_dir}}/server.crt,{{app_dir}}/server.key,{{ssl_cipher_suite}}
+https-socket = :{{app_server_port}},{{app_dir}}/server.crt,{{app_dir}}/server.key,{{ssl_cipher_suite}}
 master = true
 enable-threads = True
 chdir = {{app_dir}}
