@@ -36,6 +36,10 @@ mail_subject_prefix:
     TST: TheOval_TST
     PRD: The_Oval
     DEV: TheOval_DEV
+disqus_id:
+    TST: the-oval-tst
+    DEV: the-oval-dev
+    PRD: theoval
 mail_username: "{{vault_mail_username}}"
 strava_api_token: "{{vault_strava_api_token[oval_environment]}}"
 strava_client_secret: "{{vault_strava_client_secret[oval_environment]}}"
