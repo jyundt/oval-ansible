@@ -15,7 +15,7 @@ db_user: "{{vault_db_user}}"
 db_pass: "{{vault_db_pass}}"
 db_name: "{{vault_db_name}}"
 #We are also using the first host in the DB group (assuming there is only one)
-db_host: "{{hostvars[groups['db'][0]]['ansible_default_ipv4']['address']}}"
+db_host: "{{groups['db'][0]}}"
 ssl_cipher_suite: "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS"
 oval_user: "oval" 
 oval_uid: "1050" 
