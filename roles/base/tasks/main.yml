@@ -1,4 +1,8 @@
 ---
+- name: Run DigitalOcean specific tasks
+  include: digital_ocean.yml
+  when: ansible_system_vendor == "DigitalOcean"
+
 - name: Upgrade all packages (RHEL)
   yum: 
     name: "*"
