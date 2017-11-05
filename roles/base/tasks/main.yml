@@ -1,6 +1,10 @@
 ---
+- name: Run AWS specific tasks
+  include_tasks: aws.yml
+  when: (ansible_product_uuid | search("^EC2") and ansible_system_vendor == "Xen")
+
 - name: Run DigitalOcean specific tasks
-  include: digital_ocean.yml
+  include_tasks: digital_ocean.yml
   when: ansible_system_vendor == "DigitalOcean"
 
 - name: Upgrade all packages (RHEL)
