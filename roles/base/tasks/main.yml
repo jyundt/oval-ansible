@@ -1,6 +1,6 @@
 ---
 - name: Run AWS specific tasks
-  include: aws.yml
+  include_tasks: aws.yml
   when: (ansible_product_uuid | search("^EC2") and ansible_system_vendor == "Xen")
 
 - name: Upgrade all packages (RHEL)

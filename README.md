@@ -7,7 +7,7 @@ The server deployment uses Ansible for the three application components:
 
 The ansible playbook is written for RHEL7 based distributions (CentOS, SciLi, etc) and Ubuntu 16.04.  It _may_ work for Ubuntu 14.04 and RHEL6, but there are a few systemd dependent tasks.
 
-Ansible >= 2.2 required.
+Ansible >= 2.4 required.
 
 ## Roles/Profiles
 The three application components are divided in Ansible roles:
