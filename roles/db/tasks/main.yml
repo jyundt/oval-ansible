@@ -151,7 +151,7 @@
     special_time: daily
     user: postgres
     state: present
-    job: "/usr/bin/pg_dump {{db_name}}  | xz >  {{pgdata}}/backups/{{db_name}}_db_{{inventory_hostname}}_$(date +\\%Y\\%m\\%d).sql.xz && aws s3 sync {{pgdata}}/backups/ s3://{{s3_bucket_name}}/{{inventory_hostname}}/"
+    job: "/usr/bin/pg_dump {{db_name}}  | xz >  {{pgdata}}/backups/{{db_name}}_db_{{inventory_hostname}}_$(date +\\%Y\\%m\\%d).sql.xz && aws s3 sync {{pgdata}}/backups/ s3://{{s3_db_bucket_name}}/{{inventory_hostname}}/"
 
 - name: Update cron ENV vars with AWS S3 credentials
   cron:

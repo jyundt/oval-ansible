@@ -6,8 +6,8 @@ upstream uwsgicluster {
 
 server {
     listen       80;
-    server_name  {{inventory_hostname}} www.{{inventory_hostname}};
-    return       301 https://{{inventory_hostname}}$request_uri;
+    server_name  {{inventory_hostname}};
+    return       301 https://$host$request_uri;
 }
 
 
@@ -38,18 +38,19 @@ server {
         proxy_set_header   X-Real-IP $remote_addr;
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Host $server_name;
+        client_max_body_size 20m;
     }
 }
 
 server {
     listen       80;
     server_name  theoval.us www.theoval.us;
-    return       301 https://theoval.us$request_uri;
+    return       301 https://$host$request_uri;
 }
 
 server {
     listen       443 ssl;
-    server_name  theoval.us;
+    server_name  theoval.us www.theoval.us;
     add_header Strict-Transport-Security "max-age=31536000; 
     includeSubDomains";
     ssl_certificate /etc/nginx/ssl/theoval.us_cert.pem;
@@ -74,6 +75,7 @@ server {
         proxy_set_header   X-Real-IP $remote_addr;
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Host $server_name;
+        client_max_body_size 20m;
     }
 }
 
